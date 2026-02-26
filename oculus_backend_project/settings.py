@@ -43,14 +43,15 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'app',
-    'drf_spectacular'
+    'drf_spectacular',
+    'django_cleanup.apps.CleanupConfig'
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -177,6 +178,9 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-INSTALLED_APPS += ['django_cleanup.apps.CleanupConfig']
-# Кастомная модель пользователя
+CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+]
+
 AUTH_USER_MODEL = 'app.User'

@@ -1,7 +1,12 @@
+from django.contrib.auth import authenticate, login
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.views import APIView
+
 from .models import *
 from .serializers import *
 from .iol_calculations import IOLCalculator
@@ -345,3 +350,18 @@ class MediaFileViewSet(viewsets.ModelViewSet):
         files = self.queryset.filter(patient_id=patient_id)
         serializer = self.get_serializer(files, many=True)
         return Response(serializer.data)
+
+class LoginView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+        user = authenticate(request, email=email, password=password)
+        if user is not None:
+            login(request, user)
+            return Response({'message': 'Logged in'})
+        return Response({'error': 'Invalid credentials'}, status=400)
+
+@method_decorator(ensure_csrf_cookie, name='dispatch')
+class CSFView(APIView):
+    def get(self, request):
+        return Response({'message': 'CSF cookie set'})
