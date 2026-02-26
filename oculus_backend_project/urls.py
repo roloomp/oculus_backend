@@ -4,7 +4,11 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.shortcuts import redirect
 from rest_framework.routers import DefaultRouter
-from app.views import *
+from app.views import (
+    PatientViewSet, PreparationTemplateViewSet, PatientPreparationViewSet,
+    IOLCalculationViewSet, SurgeonFeedbackViewSet, MediaFileViewSet,
+    AnalyticsViewSet, CurrentUserViewSet, LoginView, CSRFView,
+)
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 
@@ -19,14 +23,15 @@ router.register(r'analytics', AnalyticsViewSet, basename='analytics')
 router.register(r'me', CurrentUserViewSet, basename='me')
 
 urlpatterns = [
-    path('', lambda request: redirect('admin/')),  # Редирект на админку
+    path('', lambda request: redirect('admin/')),
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     path('api-auth/', include('rest_framework.urls')),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path("api/login/", LoginView.as_view(), name="login"),
-    path("csrf/", CSFView.as_view(), name="csrf"),
+    path('api/login/', LoginView.as_view(), name='login'),
+    # FIX: Renamed endpoint and view class from CSF -> CSRF
+    path('csrf/', CSRFView.as_view(), name='csrf'),
 ]
 
 if settings.DEBUG:

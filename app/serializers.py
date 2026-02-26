@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import User, Patient, PreparationTemplate, PatientPreparation, MediaFile, IOLCalculation, SurgeonFeedback
 from .file_validators import FileValidator
-from rest_framework import serializers
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -39,7 +39,8 @@ class MediaFileSerializer(serializers.ModelSerializer):
     class Meta:
         model = MediaFile
         fields = '__all__'
-        read_only_fields = ('id', 'created_at', 'file_size', 'file_name', 'file_type', 'uploaded_by')
+        read_only_fields = ('id', 'created_at', 'file_size', 'file_name', 'file_type',
+                            'file_hash', 'uploaded_by')
 
     def get_file_url(self, obj):
         request = self.context.get('request')
@@ -59,11 +60,13 @@ class MediaFileSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         file = validated_data.get('file')
+        request = self.context.get('request')
 
         validated_data['file_name'] = file.name
         validated_data['file_size'] = file.size
-        validated_data['file_type'] = file.content_type
-        validated_data['uploaded_by'] = self.context['request'].user
+        validated_data['file_type'] = getattr(file, 'content_type', '')
+        if request and request.user.is_authenticated:
+            validated_data['uploaded_by'] = request.user
 
         validator = FileValidator()
         validated_data['file_hash'] = validator.calculate_file_hash(file)
@@ -72,10 +75,22 @@ class MediaFileSerializer(serializers.ModelSerializer):
 
 
 class MediaFileDetailSerializer(MediaFileSerializer):
+    # FIX: patient.full_name now exists (added to Patient model)
     patient_name = serializers.CharField(source='patient.full_name', read_only=True)
     preparation_info = serializers.CharField(source='preparation.template.title', read_only=True)
 
+
 class IOLCalculationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IOLCalculation
+        fields = '__all__'
+        read_only_fields = ('id', 'created_at')
+
+
+class IOLCalculationDetailSerializer(serializers.ModelSerializer):
+    calculated_by_name = serializers.CharField(source='calculated_by.full_name', read_only=True)
+    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
+
     class Meta:
         model = IOLCalculation
         fields = '__all__'
@@ -85,16 +100,5 @@ class IOLCalculationSerializer(serializers.ModelSerializer):
 class SurgeonFeedbackSerializer(serializers.ModelSerializer):
     class Meta:
         model = SurgeonFeedback
-        fields = '__all__'
-        read_only_fields = ('id', 'created_at')
-
-
-
-class IOLCalculationDetailSerializer(serializers.ModelSerializer):
-    calculated_by_name = serializers.CharField(source='calculated_by.full_name', read_only=True)
-    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
-
-    class Meta:
-        model = IOLCalculation
         fields = '__all__'
         read_only_fields = ('id', 'created_at')

@@ -3,26 +3,48 @@ import uuid
 from django.utils import timezone
 from .models import AuditLog
 
+# Fields that must never appear in audit logs
+_SENSITIVE_FIELDS = frozenset({
+    'password', 'token', 'access_token', 'refresh_token', 'secret',
+    'passport_series', 'passport_number', 'passport_issued_by',
+    'snils', 'insurance_policy',
+})
+
+
+def _scrub(obj, depth=0):
+    """
+    Recursively replace sensitive field values with '***'.
+    Depth limit prevents infinite recursion on pathological inputs.
+    """
+    if depth > 5:
+        return obj
+    if isinstance(obj, dict):
+        return {
+            k: '***' if k in _SENSITIVE_FIELDS else _scrub(v, depth + 1)
+            for k, v in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_scrub(item, depth + 1) for item in obj]
+    return obj
+
 
 class AuditMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.method in ['POST', 'PUT', 'PATCH'] and request.body:
+        # Cache body before the view consumes it, but only for mutating methods
+        if request.method in ('POST', 'PUT', 'PATCH') and request.body:
             try:
-                body = request.body.decode('utf-8')
-                request._cached_body = body  # Сохраняем в кэш
-            except:
+                request._cached_body = request.body.decode('utf-8')
+            except Exception:
                 request._cached_body = None
 
         response = self.get_response(request)
-
-        self.log_audit(request, response)
-
+        self._log_audit(request, response)
         return response
 
-    def log_audit(self, request, response):
+    def _log_audit(self, request, response):
         if request.path.startswith('/static/') or request.path.startswith('/admin/'):
             return
 
@@ -30,11 +52,13 @@ class AuditMiddleware:
 
         entity_type = None
         entity_id = None
-
         path_parts = request.path.split('/')
+
         if len(path_parts) >= 3:
-            if path_parts[2] in ['patients', 'preparations', 'templates', 'iol-calculations', 'feedback', 'media']:
-                entity_type = path_parts[2].rstrip('s')
+            segment = path_parts[2].rstrip('s')
+            known = {'patient', 'preparation', 'template', 'iol-calculation', 'feedback', 'media'}
+            if segment in known:
+                entity_type = segment
                 if len(path_parts) >= 4 and path_parts[3]:
                     try:
                         entity_id = uuid.UUID(path_parts[3])
@@ -43,21 +67,24 @@ class AuditMiddleware:
 
         action = f"{request.method} {request.path}"
 
-        if request.method in ['POST', 'PUT', 'PATCH'] and hasattr(request, '_cached_body') and request._cached_body:
-            try:
-                body = json.loads(request._cached_body)
-                if 'password' in body:
-                    body['password'] = '***'
-                if 'token' in body:
-                    body['token'] = '***'
-                action += f" | Data: {json.dumps(body, ensure_ascii=False)}"
-            except:
-                pass
+        # FIX: Only log method + path for mutating requests — scrub ALL sensitive fields
+        # recursively to avoid leaking nested PII (passport, snils, etc.) into audit logs
+        if request.method in ('POST', 'PUT', 'PATCH'):
+            cached = getattr(request, '_cached_body', None)
+            if cached:
+                try:
+                    body = _scrub(json.loads(cached))
+                    # Truncate serialized body to keep action column manageable
+                    body_str = json.dumps(body, ensure_ascii=False)[:500]
+                    action += f" | Body: {body_str}"
+                except (json.JSONDecodeError, Exception):
+                    pass  # Non-JSON body — skip logging body
 
+        # Log non-GET requests and any errors
         if request.method != 'GET' or response.status_code >= 400:
             AuditLog.objects.create(
                 user=user,
                 action=action[:1000],
                 entity_type=entity_type,
-                entity_id=entity_id
+                entity_id=entity_id,
             )

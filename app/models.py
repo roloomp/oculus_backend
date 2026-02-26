@@ -5,11 +5,11 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 
+
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError('Email обязателен')
-
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
@@ -36,6 +36,7 @@ class UserManager(BaseUserManager):
     def create_surgeon(self, email, password=None, **extra_fields):
         extra_fields.setdefault('role', 'surgeon')
         return self.create_user(email, password, **extra_fields)
+
 
 class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -110,6 +111,11 @@ class Patient(models.Model):
     def __str__(self):
         return f"{self.last_name} {self.first_name}"
 
+    # FIX: Added full_name property (was missing, referenced in MediaFileDetailSerializer)
+    @property
+    def full_name(self):
+        return f"{self.last_name} {self.first_name} {self.middle_name or ''}".strip()
+
 
 class PreparationTemplate(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -151,9 +157,11 @@ class MediaFile(models.Model):
     file_name = models.CharField(max_length=255, blank=True)
     file_type = models.CharField(max_length=100, blank=True)  # MIME type
     file_size = models.BigIntegerField(blank=True, null=True)
+    # FIX: Added missing file_hash field (was referenced in serializer but absent from model)
+    file_hash = models.CharField(max_length=64, blank=True, null=True, db_index=True)
 
     description = models.TextField(blank=True, null=True)
-    is_verified = models.BooleanField(default=False)  # Проверен ли документ
+    is_verified = models.BooleanField(default=False)
     verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True,
                                     related_name='verified_files')
     verified_at = models.DateTimeField(blank=True, null=True)
