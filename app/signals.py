@@ -8,7 +8,6 @@ User = get_user_model()
 
 
 def log_model_change(instance, created=False, deleted=False):
-    """Логирование изменений модели"""
     model_name = instance._meta.model_name
     user = getattr(instance, 'created_by', None) or getattr(instance, 'calculated_by', None) or getattr(instance,
                                                                                                         'surgeon', None)

@@ -10,7 +10,6 @@ from .analytics import DoctorAnalytics
 from rest_framework.permissions import IsAuthenticated
 from datetime import datetime
 from django.http import FileResponse, Http404
-from django.shortcuts import get_object_or_404
 import os
 
 class PatientViewSet(viewsets.ModelViewSet):
@@ -38,10 +37,8 @@ class PatientViewSet(viewsets.ModelViewSet):
         serializer = IOLCalculationSerializer(calculations, many=True)
         return Response(serializer.data)
 
-    # В PatientViewSet добавьте:
     @action(detail=True, methods=['get'])
     def medical_history(self, request, pk=None):
-        """Полная медицинская история пациента"""
         patient = self.get_object()
 
         data = {
@@ -111,9 +108,6 @@ class IOLCalculationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def calculate(self, request):
-        """
-        Эндпоинт для предварительного расчета без сохранения
-        """
         try:
             axial_length = request.data.get('axial_length')
             k1 = request.data.get('k1')
@@ -121,14 +115,12 @@ class IOLCalculationViewSet(viewsets.ModelViewSet):
             acd = request.data.get('acd')
             formula = request.data.get('formula', 'all')
 
-            # Валидация входных данных
             if not all([axial_length, k1, k2, acd]):
                 return Response(
                     {'error': 'Не все параметры предоставлены. Необходимы: axial_length, k1, k2, acd'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Проверка, что значения можно преобразовать в числа
             try:
                 float(axial_length)
                 float(k1)
@@ -140,7 +132,6 @@ class IOLCalculationViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Выполняем расчет
             if formula == 'all':
                 results = IOLCalculator.calculate_all(axial_length, k1, k2, acd)
             else:
@@ -162,9 +153,7 @@ class IOLCalculationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def calculate_and_save(self, request):
-        """Рассчитать и сохранить результат"""
         try:
-            # Получаем данные из запроса
             patient_id = request.data.get('patient_id')
             axial_length = request.data.get('axial_length')
             k1 = request.data.get('k1')
@@ -173,19 +162,16 @@ class IOLCalculationViewSet(viewsets.ModelViewSet):
             eye = request.data.get('eye', 'right')
             formula = request.data.get('formula', 'srk_t')
 
-            # Проверяем обязательные поля
             if not all([patient_id, axial_length, k1, k2, acd]):
                 return Response(
                     {'error': 'Не все параметры предоставлены'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Рассчитываем результат
             result = IOLCalculator.calculate_with_formula(
                 formula, axial_length, k1, k2, acd
             )
 
-            # Создаем запись в БД
             calculation = IOLCalculation.objects.create(
                 patient_id=patient_id,
                 eye=eye,
@@ -209,9 +195,6 @@ class IOLCalculationViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def compare_formulas(self, request, pk=None):
-        """
-        Сравнение результатов по разным формулам для сохраненного расчета
-        """
         calculation = self.get_object()
         results = IOLCalculator.calculate_all(
             calculation.axial_length,
@@ -251,7 +234,6 @@ class IOLCalculationViewSet(viewsets.ModelViewSet):
             calculation.acd
         )
 
-        # Добавляем рекомендацию
         recommendation = IOLCalculator.get_recommendation(
             calculation.axial_length,
             calculation.k1,
@@ -279,7 +261,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def patients(self, request):
-        """Статистика по пациентам"""
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
 
@@ -344,7 +325,6 @@ class MediaFileViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def verify(self, request, pk=None):
-        """Подтверждение документа"""
         media_file = self.get_object()
         media_file.is_verified = True
         media_file.verified_by = request.user
@@ -355,7 +335,6 @@ class MediaFileViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def patient_files(self, request):
-        """Получение файлов конкретного пациента"""
         patient_id = request.query_params.get('patient_id')
         if not patient_id:
             return Response(

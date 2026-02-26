@@ -144,8 +144,23 @@ LOGGING = {
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Oculus API',
-    'DESCRIPTION': 'API для офтальмологической клиники',
+    'DESCRIPTION': 'API для офтальмологической клиники. Управление пациентами, расчет IOL, загрузка файлов и аналитика',
     'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': True,
+    },
+    'TAGS': [
+        {'name': 'patients', 'description': 'Управление пациентами'},
+        {'name': 'iol-calculations', 'description': 'Расчет интраокулярных линз (IOL)'},
+        {'name': 'media', 'description': 'Загрузка и управление файлами'},
+        {'name': 'feedback', 'description': 'Отзывы хирургов'},
+        {'name': 'analytics', 'description': 'Аналитика и отчеты'},
+        {'name': 'auth', 'description': 'Аутентификация'},
+    ],
 }
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/

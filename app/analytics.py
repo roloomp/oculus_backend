@@ -6,11 +6,8 @@ from decimal import Decimal
 
 
 class DoctorAnalytics:
-    """Аналитика для врачей"""
-
     @staticmethod
     def get_patient_statistics(start_date=None, end_date=None):
-        """Статистика по пациентам"""
         if not start_date:
             start_date = timezone.now() - timedelta(days=30)
         if not end_date:
@@ -32,7 +29,6 @@ class DoctorAnalytics:
 
     @staticmethod
     def get_surgeon_performance(doctor_id=None, days=30):
-        """Статистика работы хирургов"""
         start_date = timezone.now() - timedelta(days=days)
 
         feedback = SurgeonFeedback.objects.filter(
@@ -61,7 +57,6 @@ class DoctorAnalytics:
 
     @staticmethod
     def get_iol_statistics():
-        """Статистика расчетов IOL"""
         calculations = IOLCalculation.objects.all()
 
         # Средние значения по формулам
@@ -70,10 +65,8 @@ class DoctorAnalytics:
             count=Count('id')
         )
 
-        # Распределение по глазам
         eye_distribution = calculations.values('eye').annotate(count=Count('id'))
 
-        # Тренды по месяцам
         last_year = timezone.now() - timedelta(days=365)
         monthly_trends = calculations.filter(
             created_at__gte=last_year
@@ -94,7 +87,6 @@ class DoctorAnalytics:
 
     @staticmethod
     def get_dashboard_data(doctor_id=None):
-        """Сводная информация для дашборда"""
         return {
             'patient_statistics': DoctorAnalytics.get_patient_statistics(),
             'surgeon_performance': DoctorAnalytics.get_surgeon_performance(doctor_id),
@@ -113,7 +105,6 @@ class DoctorAnalytics:
 
     @staticmethod
     def generate_surgeon_report(doctor_id, start_date, end_date):
-        """Детальный отчет по хирургу"""
         surgeon = User.objects.get(id=doctor_id)
         feedbacks = SurgeonFeedback.objects.filter(
             surgeon_id=doctor_id,

@@ -51,7 +51,6 @@ class MediaFileSerializer(serializers.ModelSerializer):
         validator = FileValidator()
         validation_result = validator.validate(value)
 
-        # Проверка на дубликаты
         file_hash = validation_result['hash']
         if MediaFile.objects.filter(file_hash=file_hash).exists():
             raise serializers.ValidationError('Такой файл уже был загружен ранее')
@@ -61,13 +60,11 @@ class MediaFileSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         file = validated_data.get('file')
 
-        # Добавляем метаданные
         validated_data['file_name'] = file.name
         validated_data['file_size'] = file.size
         validated_data['file_type'] = file.content_type
         validated_data['uploaded_by'] = self.context['request'].user
 
-        # Вычисляем хеш
         validator = FileValidator()
         validated_data['file_hash'] = validator.calculate_file_hash(file)
 

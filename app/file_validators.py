@@ -8,8 +8,6 @@ import hashlib
 
 
 class FileValidator:
-    """Валидатор для загружаемых файлов"""
-
     ALLOWED_EXTENSIONS = {
         'images': ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff'],
         'documents': ['.pdf', '.doc', '.docx', '.txt', '.rtf'],
@@ -36,15 +34,14 @@ class FileValidator:
         'application/dicom': ['.dcm'],
     }
 
-    MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-    MAX_IMAGE_DIMENSIONS = (5000, 5000)  # Максимальные размеры изображения
+    MAX_FILE_SIZE = 50 * 1024 * 1024
+    MAX_IMAGE_DIMENSIONS = (5000, 5000)
 
     def __init__(self, allowed_types=None, max_size=None):
         self.allowed_types = allowed_types or ['images', 'documents']
         self.max_size = max_size or self.MAX_FILE_SIZE
 
     def validate_file_extension(self, file):
-        """Проверка расширения файла"""
         ext = os.path.splitext(file.name)[1].lower()
 
         allowed_exts = []
@@ -53,11 +50,9 @@ class FileValidator:
 
         if ext not in allowed_exts:
             raise ValidationError(f'Недопустимое расширение файла. Разрешены: {", ".join(allowed_exts)}')
-
         return True
 
     def validate_mime_type(self, file):
-        """Проверка MIME типа файла"""
         try:
             file.seek(0)
             mime = magic.from_buffer(file.read(2048), mime=True)
@@ -66,7 +61,6 @@ class FileValidator:
             if mime not in self.ALLOWED_MIME_TYPES:
                 raise ValidationError(f'Недопустимый тип файла: {mime}')
 
-            # Проверка соответствия расширения MIME типу
             ext = os.path.splitext(file.name)[1].lower()
             if ext not in self.ALLOWED_MIME_TYPES[mime]:
                 raise ValidationError('Расширение файла не соответствует его содержимому')
@@ -76,13 +70,11 @@ class FileValidator:
             raise ValidationError(f'Ошибка проверки типа файла: {e}')
 
     def validate_file_size(self, file):
-        """Проверка размера файла"""
         if file.size > self.max_size:
             raise ValidationError(f'Файл слишком большой. Максимальный размер: {self.max_size // (1024 * 1024)}MB')
         return True
 
     def validate_image(self, file):
-        """Дополнительная валидация изображений"""
         try:
             width, height = get_image_dimensions(file)
 
@@ -90,7 +82,6 @@ class FileValidator:
                 raise ValidationError(
                     f'Изображение слишком большое. Максимальные размеры: {self.MAX_IMAGE_DIMENSIONS[0]}x{self.MAX_IMAGE_DIMENSIONS[1]}')
 
-            # Проверка целостности изображения
             img = Image.open(file)
             img.verify()
             file.seek(0)
@@ -100,7 +91,6 @@ class FileValidator:
             raise ValidationError(f'Файл поврежден или не является изображением: {e}')
 
     def validate_pdf(self, file):
-        """Валидация PDF файлов"""
         try:
             pdf = PdfReader(file)
             if len(pdf.pages) == 0:
@@ -111,14 +101,12 @@ class FileValidator:
             raise ValidationError(f'Некорректный PDF файл: {e}')
 
     def calculate_file_hash(self, file):
-        """Вычисление хеша файла для проверки дубликатов"""
         sha256 = hashlib.sha256()
         for chunk in file.chunks():
             sha256.update(chunk)
         return sha256.hexdigest()
 
     def validate(self, file):
-        """Полная валидация файла"""
         errors = []
 
         try:
@@ -137,7 +125,6 @@ class FileValidator:
         except ValidationError as e:
             errors.append(str(e))
 
-        # Специфическая валидация по типу
         if mime_type and mime_type.startswith('image/'):
             try:
                 self.validate_image(file)
