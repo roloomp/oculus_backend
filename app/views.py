@@ -23,14 +23,22 @@ from .serializers import (
 )
 from .iol_calculations import IOLCalculator
 from .analytics import DoctorAnalytics
-from .permissions import IsMedicalStaff, IsSurgeon, IsAdminOrReadOnly
+from .permissions import IsMedicalStaff, IsSurgeon, IsAdminOrReadOnly, IsPatientOwner, _EitherPermission
 
 
 class PatientViewSet(viewsets.ModelViewSet):
-    # FIX: Added explicit role-based permission — only medical staff can access patients
+    # Default: medical staff only.
+    # Exception: patients can read their own record via IsPatientOwner (object-level check).
     permission_classes = [IsMedicalStaff]
     queryset = Patient.objects.all().order_by('-created_at')
     serializer_class = PatientSerializer
+
+    def get_permissions(self):
+        # Actions a patient-role user is allowed to call on their own record
+        patient_allowed = ('retrieve', 'medical_history', 'preparations', 'iol_calculations')
+        if self.action in patient_allowed:
+            return [_EitherPermission(IsMedicalStaff(), IsPatientOwner())]
+        return [IsMedicalStaff()]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['status', 'gender', 'surgery_type']
     search_fields = ['last_name', 'first_name', 'passport_number']

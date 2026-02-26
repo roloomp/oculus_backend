@@ -4,10 +4,14 @@ from .file_validators import FileValidator
 
 
 class UserSerializer(serializers.ModelSerializer):
+    # Expose the linked patient UUID so the frontend can navigate directly
+    # to the patient's own record without a separate lookup.
+    linked_patient_id = serializers.UUIDField(read_only=True)
+
     class Meta:
         model = User
-        fields = ('id', 'email', 'first_name', 'last_name', 'middle_name', 'role')
-        read_only_fields = ('id',)
+        fields = ('id', 'email', 'first_name', 'last_name', 'middle_name', 'role', 'linked_patient_id')
+        read_only_fields = ('id', 'linked_patient_id')
 
 
 class PatientSerializer(serializers.ModelSerializer):

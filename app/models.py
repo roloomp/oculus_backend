@@ -52,6 +52,15 @@ class User(AbstractUser):
     ], default='patient')
     medical_license_number = models.CharField(max_length=100, blank=True, null=True)
     telegram_id = models.BigIntegerField(blank=True, null=True)
+    # Link to the Patient record for users with role='patient'.
+    # Null for doctor/surgeon/admin accounts.
+    linked_patient = models.OneToOneField(
+        'Patient',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='user_account',
+    )
 
     objects = UserManager()
 
