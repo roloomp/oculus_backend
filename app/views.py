@@ -19,7 +19,8 @@ from .models import (
 from .serializers import (
     PatientSerializer, PreparationTemplateSerializer, PatientPreparationSerializer,
     MediaFileSerializer, MediaFileDetailSerializer, IOLCalculationSerializer,
-    IOLCalculationDetailSerializer, SurgeonFeedbackSerializer, UserSerializer
+    IOLCalculationDetailSerializer, SurgeonFeedbackSerializer,
+    SurgeonReferralSerializer, UserSerializer
 )
 from .iol_calculations import IOLCalculator
 from .analytics import DoctorAnalytics
@@ -27,14 +28,11 @@ from .permissions import IsMedicalStaff, IsSurgeon, IsAdminOrReadOnly, IsPatient
 
 
 class PatientViewSet(viewsets.ModelViewSet):
-    # Default: medical staff only.
-    # Exception: patients can read their own record via IsPatientOwner (object-level check).
     permission_classes = [IsMedicalStaff]
     queryset = Patient.objects.all().order_by('-created_at')
     serializer_class = PatientSerializer
 
     def get_permissions(self):
-        # Actions a patient-role user is allowed to call on their own record
         patient_allowed = ('retrieve', 'medical_history', 'preparations', 'iol_calculations')
         if self.action in patient_allowed:
             return [_EitherPermission(IsMedicalStaff(), IsPatientOwner())]
@@ -74,15 +72,14 @@ class PatientViewSet(viewsets.ModelViewSet):
                 many=True,
                 context={'request': request}
             ).data,
-            'feedback': SurgeonFeedbackSerializer(
-                SurgeonFeedback.objects.filter(patient=patient), many=True
+            'feedback': SurgeonReferralSerializer(
+                SurgeonFeedback.objects.filter(patient=patient).order_by('-created_at'), many=True
             ).data,
         }
         return Response(data)
 
 
 class PreparationTemplateViewSet(viewsets.ModelViewSet):
-    # FIX: Read for all medical staff; writes restricted to admins
     permission_classes = [IsAdminOrReadOnly]
     queryset = PreparationTemplate.objects.all()
     serializer_class = PreparationTemplateSerializer
@@ -91,7 +88,6 @@ class PreparationTemplateViewSet(viewsets.ModelViewSet):
 
 
 class PatientPreparationViewSet(viewsets.ModelViewSet):
-    # FIX: Only medical staff
     permission_classes = [IsMedicalStaff]
     queryset = PatientPreparation.objects.all()
     serializer_class = PatientPreparationSerializer
@@ -106,13 +102,36 @@ class PatientPreparationViewSet(viewsets.ModelViewSet):
 
 
 class SurgeonFeedbackViewSet(viewsets.ModelViewSet):
-    # FIX: Only surgeons can create/edit feedback
     permission_classes = [IsSurgeon]
-    queryset = SurgeonFeedback.objects.all()
-    serializer_class = SurgeonFeedbackSerializer
+    queryset = SurgeonFeedback.objects.all().select_related('patient', 'surgeon')
+    serializer_class = SurgeonReferralSerializer
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve'):
+            return [IsMedicalStaff()]
+        return [IsSurgeon()]
 
     def perform_create(self, serializer):
-        serializer.save(surgeon=self.request.user)
+        referral = serializer.save(
+            surgeon=self.request.user,
+            action_type=SurgeonFeedback.ACTION_REEXAMINE,
+        )
+        patient = referral.patient
+        patient.status = 'yellow'
+        patient.surgery_date = None   # дата сбрасывается, хирург назначит заново
+        patient.save(update_fields=['status', 'surgery_date'])
+
+    @action(detail=False, methods=['get'])
+    def for_patient(self, request):
+        patient_id = request.query_params.get('patient_id')
+        if not patient_id:
+            return Response(
+                {'error': 'Необходим параметр patient_id'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        qs = self.queryset.filter(patient_id=patient_id)
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
 
 
 class CurrentUserViewSet(viewsets.ViewSet):
@@ -124,7 +143,6 @@ class CurrentUserViewSet(viewsets.ViewSet):
 
 
 class IOLCalculationViewSet(viewsets.ModelViewSet):
-    # FIX: Only medical staff can access IOL calculations
     permission_classes = [IsMedicalStaff]
     queryset = IOLCalculation.objects.all()
     serializer_class = IOLCalculationDetailSerializer
@@ -263,7 +281,6 @@ class IOLCalculationViewSet(viewsets.ModelViewSet):
 
 
 class AnalyticsViewSet(viewsets.ViewSet):
-    # FIX: Restricted to medical staff
     permission_classes = [IsMedicalStaff]
 
     @action(detail=False, methods=['get'])
@@ -287,7 +304,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def surgeon_report(self, request):
-        # FIX: Validate all params BEFORE parsing dates to prevent TypeError crash
         doctor_id = request.query_params.get('doctor_id')
         start_date_str = request.query_params.get('start_date')
         end_date_str = request.query_params.get('end_date')
@@ -317,7 +333,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
 
 class MediaFileViewSet(viewsets.ModelViewSet):
-    # FIX: Only medical staff
     permission_classes = [IsMedicalStaff]
     queryset = MediaFile.objects.all()
     serializer_class = MediaFileDetailSerializer
@@ -344,7 +359,6 @@ class MediaFileViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def verify(self, request, pk=None):
-        # FIX: Only surgeons/admins should be able to verify documents
         if request.user.role not in ('surgeon', 'admin'):
             return Response(
                 {'error': 'Только хирурги и администраторы могут верифицировать документы'},
@@ -390,7 +404,6 @@ class LoginView(APIView):
         return Response({'error': 'Неверный email или пароль'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
-# FIX: Renamed CSFView -> CSRFView; fixed typo in response message; added AllowAny
 @method_decorator(ensure_csrf_cookie, name='dispatch')
 class CSRFView(APIView):
     permission_classes = [permissions.AllowAny]

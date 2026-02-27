@@ -18,8 +18,6 @@ class IOLCalculator:
         H = R - math.sqrt(R ** 2 - (Cw / 2) ** 2)
         return R, H
 
-    # ── Public formula methods ────────────────────────────────────────────────
-
     @staticmethod
     def srk_t(axial_length: float, k1: float, k2: float,
                acd: Optional[float] = None,
@@ -47,7 +45,6 @@ class IOLCalculator:
         SF = float(surgeon_factor)
 
         _, H = IOLCalculator._corneal_geometry(L, K)
-        # Predicted postoperative ACD = 0.56 + corneal height + surgeon factor
         ELP = 0.56 + H + SF
         ELP = max(2.5, min(7.5, ELP))
 
@@ -118,16 +115,13 @@ class IOLCalculator:
         K = (float(k1) + float(k2)) / 2
         LF = float(lens_factor)
 
-        # Optical axial length (retinal thickness correction)
         RT = 0.65696 - 0.02029 * L
         L_opt = L - RT
 
-        # Corneal height from optical AL
         _, H = IOLCalculator._corneal_geometry(L_opt, K)
         ELP = 0.56 + H + LF
         ELP = max(3.0, min(7.0, ELP))
 
-        # Barrett uses optical AL in the vergence equation
         P = IOLCalculator._vergence(L_opt, K, ELP)
 
         if not (5.0 <= P <= 35.0):
@@ -137,12 +131,9 @@ class IOLCalculator:
             )
         return round(P, 2)
 
-    # ── Batch helpers ─────────────────────────────────────────────────────────
-
     @staticmethod
     def calculate_all(axial_length: float, k1: float, k2: float,
                       acd: float) -> Dict:
-        """Run all five formulas and return results + any per-formula errors."""
         formulas = {
             'srk_t':    lambda: IOLCalculator.srk_t(axial_length, k1, k2, acd),
             'holladay': lambda: IOLCalculator.holladay(axial_length, k1, k2, acd),

@@ -12,10 +12,6 @@ _SENSITIVE_FIELDS = frozenset({
 
 
 def _scrub(obj, depth=0):
-    """
-    Recursively replace sensitive field values with '***'.
-    Depth limit prevents infinite recursion on pathological inputs.
-    """
     if depth > 5:
         return obj
     if isinstance(obj, dict):
@@ -33,7 +29,6 @@ class AuditMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # Cache body before the view consumes it, but only for mutating methods
         if request.method in ('POST', 'PUT', 'PATCH') and request.body:
             try:
                 request._cached_body = request.body.decode('utf-8')
@@ -67,20 +62,16 @@ class AuditMiddleware:
 
         action = f"{request.method} {request.path}"
 
-        # FIX: Only log method + path for mutating requests — scrub ALL sensitive fields
-        # recursively to avoid leaking nested PII (passport, snils, etc.) into audit logs
         if request.method in ('POST', 'PUT', 'PATCH'):
             cached = getattr(request, '_cached_body', None)
             if cached:
                 try:
                     body = _scrub(json.loads(cached))
-                    # Truncate serialized body to keep action column manageable
                     body_str = json.dumps(body, ensure_ascii=False)[:500]
                     action += f" | Body: {body_str}"
                 except (json.JSONDecodeError, Exception):
-                    pass  # Non-JSON body — skip logging body
+                    pass
 
-        # Log non-GET requests and any errors
         if request.method != 'GET' or response.status_code >= 400:
             AuditLog.objects.create(
                 user=user,

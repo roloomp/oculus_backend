@@ -6,7 +6,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv()
 
-# FIX: Raise immediately if SECRET_KEY is not set rather than starting with None
 SECRET_KEY = os.getenv('SECRET_KEY')
 if not SECRET_KEY:
     raise ValueError(
@@ -33,7 +32,6 @@ INSTALLED_APPS = [
     'django_cleanup.apps.CleanupConfig',
 ]
 
-# FIX: SecurityMiddleware must be first; CorsMiddleware must come before CommonMiddleware
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -148,8 +146,6 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# FIX: Added explicit CORS_ALLOWED_ORIGINS whitelist from environment variable.
-# CORS_ALLOW_CREDENTIALS=True without an origin whitelist is a security hole.
 _cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')
 CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(',') if o.strip()]
 CORS_ALLOW_CREDENTIALS = True

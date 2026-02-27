@@ -73,8 +73,10 @@ class IOLCalculationAdmin(admin.ModelAdmin):
 
 @admin.register(SurgeonFeedback)
 class SurgeonFeedbackAdmin(admin.ModelAdmin):
-    list_display = ('patient', 'surgeon', 'status_after', 'created_at')
-    list_filter = ('status_after',)
+    list_display = ('patient', 'surgeon', 'action_type', 'created_at')
+    list_filter = ('action_type',)
+    search_fields = ('patient__last_name', 'patient__first_name', 'comment')
+    readonly_fields = ('created_at',)
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):

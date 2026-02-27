@@ -54,7 +54,6 @@ class DoctorAnalytics:
             )
         )
 
-        # FIX: Division by zero guard moved here (was inside a loop that mutated a queryset dict)
         for stat in stats:
             total = stat['total_operations']
             stat['success_rate'] = round((stat['successful'] / total) * 100, 1) if total > 0 else 0
@@ -78,7 +77,6 @@ class DoctorAnalytics:
 
         last_year = timezone.now() - timedelta(days=365)
 
-        # FIX: Replaced deprecated .extra() with TruncMonth — standard Django ORM, DB-agnostic
         monthly_trends = list(
             calculations.filter(created_at__gte=last_year)
             .annotate(month=TruncMonth('created_at'))
@@ -122,7 +120,6 @@ class DoctorAnalytics:
         ).select_related('patient')
 
         total = feedbacks.count()
-        # FIX: Safe division — check total > 0 before dividing
         success_rate = (
             round(feedbacks.filter(status_after='success').count() / total * 100, 1)
             if total > 0 else 0

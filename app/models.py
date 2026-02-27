@@ -226,23 +226,36 @@ class IOLCalculation(models.Model):
 
 
 class SurgeonFeedback(models.Model):
+    """
+    Направление хирурга на доследование.
+    Хирург не ставит итог операции — вместо этого он может вернуть пациента
+    участковому врачу с комментарием «что именно доследовать».
+    При создании записи статус пациента автоматически сбрасывается на yellow.
+    """
+    ACTION_REEXAMINE = 'reexamine'
+    ACTION_CHOICES = [
+        ('reexamine', 'Направить на доследование'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
-    surgeon = models.ForeignKey(User, on_delete=models.CASCADE)
-    comment = models.TextField()
-    status_after = models.CharField(max_length=20, choices=[
-        ('success', 'Успешно'),
-        ('complications', 'С осложнениями'),
-        ('postponed', 'Отложено'),
-        ('cancelled', 'Отменено'),
-    ], blank=True, null=True)
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='surgeon_referrals')
+    surgeon = models.ForeignKey(User, on_delete=models.CASCADE, related_name='referrals_made')
+    # Что именно нужно доследовать
+    comment = models.TextField(verbose_name='Комментарий для районного врача')
+    action_type = models.CharField(
+        max_length=20,
+        choices=ACTION_CHOICES,
+        default='reexamine',
+        verbose_name='Тип действия',
+    )
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         db_table = 'surgeon_feedback'
+        ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.patient} - {self.created_at.date()}"
+        return f"Доследование: {self.patient} — {self.created_at.date()}"
 
 
 class Notification(models.Model):

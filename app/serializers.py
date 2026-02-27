@@ -4,8 +4,6 @@ from .file_validators import FileValidator
 
 
 class UserSerializer(serializers.ModelSerializer):
-    # Expose the linked patient UUID so the frontend can navigate directly
-    # to the patient's own record without a separate lookup.
     linked_patient_id = serializers.UUIDField(read_only=True)
 
     class Meta:
@@ -79,7 +77,6 @@ class MediaFileSerializer(serializers.ModelSerializer):
 
 
 class MediaFileDetailSerializer(MediaFileSerializer):
-    # FIX: patient.full_name now exists (added to Patient model)
     patient_name = serializers.CharField(source='patient.full_name', read_only=True)
     preparation_info = serializers.CharField(source='preparation.template.title', read_only=True)
 
@@ -101,8 +98,16 @@ class IOLCalculationDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'created_at')
 
 
-class SurgeonFeedbackSerializer(serializers.ModelSerializer):
+class SurgeonReferralSerializer(serializers.ModelSerializer):
+    surgeon_name = serializers.CharField(source='surgeon.full_name', read_only=True)
+    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
+
     class Meta:
         model = SurgeonFeedback
-        fields = '__all__'
-        read_only_fields = ('id', 'created_at')
+        fields = ('id', 'patient', 'surgeon', 'surgeon_name', 'patient_name',
+                  'action_type', 'comment', 'created_at')
+        read_only_fields = ('id', 'surgeon', 'surgeon_name', 'patient_name',
+                            'action_type', 'created_at')
+
+
+SurgeonFeedbackSerializer = SurgeonReferralSerializer
